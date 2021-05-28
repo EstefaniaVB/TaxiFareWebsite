@@ -1,48 +1,60 @@
 import streamlit as st
+import requests
+from shapely.geometry import Point, Polygon
+import geopandas as gpd
+import pandas as pd
+import geopy
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
+import datetime
 
 '''
 # TaxiFareModel front
 '''
 
-st.markdown('''
-Remember that there are several ways to output content into your web page...
+d = st.date_input(
+    "Set the day",
+    datetime.date(2019, 7, 6))
+t = st.time_input("Set the time", datetime.time(8, 45))
+st.write(d,t)
+passenger = st.number_input('Insert the number of passengers', format= "%d", step=1)
 
-Either as with the title by just creating a string (or an f-string). Or as with this paragraph using the `st.` functions
-''')
 
-'''
-## Here we would like to add some controllers in order to ask the user to select the parameters of the ride
+address = st.text_input("Pickup location", "JFK airport")
+geolocator = Nominatim(user_agent="GTA Lookup")
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+location = geolocator.geocode(address)
+pick_lat = location.latitude
+pick_long = location.longitude
 
-1. Let's ask for:
-- date and time
-- pickup longitude
-- pickup latitude
-- dropoff longitude
-- dropoff latitude
-- passenger count
-'''
+map_data = pd.DataFrame({"lat": [pick_lat], "lon": [pick_long]})
 
-'''
-## Once we have these, let's call our API in order to retrieve a prediction
-
-See ? No need to load a `model.joblib` file in this app, we do not even need to know anything about Data Science in order to retrieve a prediction...
-
-🤔 How could we call our API ? Off course... The `requests` package 💡
-'''
+address = st.text_input("Dropoff location", "Madison Square Park")
+geolocator = Nominatim(user_agent="GTA Lookup")
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+location = geolocator.geocode(address)
+drop_lat = location.latitude
+drop_long = location.longitude
+drop=pd.DataFrame({
+    "lat": [drop_lat],
+    "lon": [drop_long]
+})
+map_data=map_data.append(drop)
+st.map(map_data)
 
 url = 'https://taxifare.lewagon.ai/predict'
 
-if url == 'https://taxifare.lewagon.ai/predict':
 
-    st.markdown('Maybe you want to use your own API for the prediction, not the one provided by Le Wagon...')
+pickup_datetime = f'{d} {t}'
+# build X ⚠️ beware to the order of the parameters ⚠️
+parameters = {
+    "pickup_datetime":pickup_datetime,
+    "pickup_longitude":pick_long,
+    "pickup_latitude":pick_lat,
+    "dropoff_longitude":drop_long,
+    "dropoff_latitude":drop_lat,
+    "passenger_count":passenger}
 
-'''
+response = requests.get(url,params=parameters).json()
 
-2. Let's build a dictionary containing the parameters for our API...
-
-3. Let's call our API using the `requests` package...
-
-4. Let's retrieve the prediction from the **JSON** returned by the API...
-
-## Finally, we can display the prediction to the user
-'''
+st.write('The estimated fare cost is:' ,response['prediction'])
